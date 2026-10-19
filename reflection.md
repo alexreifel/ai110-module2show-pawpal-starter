@@ -37,6 +37,18 @@ Relationships: an Owner has many Pets, a Pet has many Tasks, the Scheduler reads
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
+**The tradeoff: conflicts are detected but not fixed.** If a task has a preferred time, the scheduler pins it exactly there, even when it overlaps another pinned task. `detect_conflicts()` checks for overlapping durations, not just identical start times, so a 08:00–08:30 walk and an 08:15 flea treatment are flagged. But it only reports the conflict as a warning. It never moves either task.
+
+This is reasonable for a pet owner for three reasons:
+
+- **The owner knows things the scheduler doesn't.** Some "conflicts" are fine in real life: a cat's pill and a dog's walk at 08:00 might be handled by two people, or the pill takes 30 seconds before heading out.
+- **Moving tasks automatically could do harm.** Meds are often time-sensitive. Quietly pushing a pill from 08:00 to 08:30 is worse than showing a warning and letting the owner decide.
+- **It keeps the algorithm simple and the plan predictable.** A task with a preferred time always shows up at that time, and the warning explains any problem.
+
+The cost is that the plan the app shows can be impossible as written. The owner has to read the warnings and adjust things themselves.
+
+A second, smaller tradeoff: `fit_to_budget()` is **greedy**. It keeps tasks in priority order until the time runs out, rather than searching for the combination that fills the time best. Sometimes that leaves a few minutes unused. In exchange, it's easy to explain: higher priority always wins.
+
 ---
 
 ## 3. AI Collaboration
@@ -74,6 +86,13 @@ The most helpful prompts were narrow and specific. "Brainstorm the objects, thei
 - **What I set aside:** heavier ideas, like a priority Enum or a system for owner preferences. Priority is checked with a simple validation instead.
 - **The UML files:** the AI kept two identical UML files (`uml.mmd` and `uml_draft.mmd`). I questioned why, and we deleted the draft, because the grader expects `uml.mmd`.
 - **A tradeoff I noticed:** in the output, medium-priority tasks get the earliest open slots, because high-priority tasks are pinned to their preferred times. I kept that behavior, but only after understanding why it happens.
+
+**Readable vs. "Pythonic":** I asked the AI how `Scheduler.assign_times()` could be simplified for readability or performance. It offered two versions:
+
+- **A loop:** replace the nested `while moved:` loop with a single pass over the pinned time slots, sorted by start time.
+- **A one-liner:** do the same thing with `functools.reduce` and a lambda.
+
+I kept the plain loop. The `reduce` version is shorter, but you have to decode the lambda to see what it does, and it's no faster. Before swapping in the new loop, I had it compared against the old code on 200,000 random inputs, and the results were identical every time. The demo output didn't change either.
 
 **How I verified the result:**
 

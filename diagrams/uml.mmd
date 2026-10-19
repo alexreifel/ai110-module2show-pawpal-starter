@@ -48,7 +48,10 @@ classDiagram
         +Owner owner
         +collect_tasks(day: date) list~Task~
         +sort_tasks(tasks: list~Task~) list~Task~
-        +filter_tasks(tasks: list~Task~, minutes: int) tuple
+        +sort_by_time(tasks: list~Task~) list~Task~
+        +filter_tasks(pet_name: str, completed: bool) list~Task~
+        +mark_task_complete(task_id: int) None
+        +fit_to_budget(tasks: list~Task~, minutes: int) tuple
         +assign_times(tasks: list~Task~) list~ScheduledTask~
         +detect_conflicts(items: list~ScheduledTask~) list~str~
         +build_plan(day: date) DailyPlan
