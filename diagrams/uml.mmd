@@ -21,8 +21,9 @@ classDiagram
         +str notes
         +list~Task~ tasks
         +add_task(task: Task) None
-        +remove_task(title: str) None
-        +edit_task(title: str, **changes) None
+        +remove_task(task_id: int) None
+        +edit_task(task_id: int, changes: dict) None
+        +complete_task(task_id: int) None
         +get_tasks(include_completed: bool) list~Task~
     }
 
@@ -35,6 +36,8 @@ classDiagram
         +str frequency
         +bool completed
         +str pet_name
+        +date due_date
+        +int id
         +mark_complete() Task | None
         +priority_score() int
         +is_due_today(day: date) bool
