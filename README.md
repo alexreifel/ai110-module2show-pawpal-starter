@@ -113,19 +113,85 @@ Why this plan:
 
 ## 🧪 Testing PawPal+
 
+Run the full test suite from the project folder:
+
 ```bash
 # Run the full test suite:
-pytest
+python -m pytest
 
-# Run with coverage:
-pytest --cov
+# Run with coverage (needs pytest-cov, which is in requirements.txt):
+python -m pytest --cov=pawpal_system --cov-report=term-missing
 ```
+
+`--cov=pawpal_system` measures just the backend module. `--cov-report=term-missing` lists the line numbers no test ran.
+
+The 30 tests in `tests/test_pawpal.py` cover both normal use and edge cases:
+
+- **Sorting:** tasks added out of order come back in clock order, untimed tasks go last, and a pet with no tasks gives an empty list.
+- **Recurring tasks:**
+  - completing a daily task creates a new one due tomorrow, with a new id and the same pet
+  - weekly tasks come back in 7 days, and "once" tasks don't repeat
+  - an overdue task comes back tomorrow, not still overdue
+  - completed tasks and tomorrow's copy stay out of today's plan
+- **Conflict detection:**
+  - two tasks at the exact same time are flagged, for different pets and for the same pet
+  - overlaps between tasks that aren't next to each other are caught
+  - back-to-back tasks (08:00–08:30, then 08:30) are not flagged
+- **Planning and time budget:**
+  - flexible tasks are placed around tasks with a preferred time
+  - high priority wins when time is short
+  - a task that's too long is skipped while a shorter one still fits
+  - an owner with no pets, or a pet with no tasks, doesn't break the plan
+- **Basics and validation:**
+  - completing a task changes its status, and adding a task increases the pet's task count
+  - filtering works by pet and by status
+  - bad priorities and unknown task ids raise clear errors
+  - `"HH:MM"` strings are converted to times
+- **Bookkeeping and output:**
+  - editing, listing and removing tasks, and removing pets and changing availability
+  - the plan's summary, explanation and table rows
+  - the "runs past day end" warning
 
 Sample test output:
 
+```text
+============================= test session starts ==============================
+platform darwin -- Python 3.11.17, pytest-9.1.1, pluggy-1.7.0
+rootdir: /Users/alexreifel/Coding Programs/CodePath AI 110/ai110-module2show-pawpal-starter
+configfile: pytest.ini
+testpaths: tests
+plugins: cov-7.1.0, anyio-4.15.1, platformdirs-4.13.5
+collected 30 items
+
+tests/test_pawpal.py ..............................                      [100%]
+
+============================== 30 passed in 0.02s ==============================
 ```
-# Paste your pytest output here
+
+Coverage output (`python -m pytest --cov=pawpal_system --cov-report=term-missing`):
+
+```text
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.11.17-final-0 _______________
+
+Name               Stmts   Miss  Cover   Missing
+------------------------------------------------
+pawpal_system.py     195      2    99%   208, 210
+------------------------------------------------
+TOTAL                195      2    99%
+============================== 30 passed in 0.06s ==============================
 ```
+
+The only uncovered lines are two in `DailyPlan.explain()` that print skipped tasks and warnings. Both of those lists are already tested directly through `plan.skipped` and `plan.warnings`.
+
+**Confidence level: ★★★★☆ (4/5)**
+
+All 30 tests pass, with 99% line coverage of `pawpal_system.py`. Together they cover each scheduling feature, plus the edge cases most likely to break: same-time conflicts, back-to-back boundaries, empty inputs, recurrence dates and the time budget. It's not 5 stars because:
+
+- the Streamlit UI only has a manual smoke test, not automated tests
+- the tests use the real current date, so cases like month or year rollovers aren't tested on purpose
+- owner preferences aren't used by the scheduler yet
+- conflicts are warned about but not automatically resolved
 
 ## 📐 Smarter Scheduling
 
