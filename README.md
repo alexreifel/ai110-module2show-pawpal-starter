@@ -1,6 +1,18 @@
 # PawPal+ (Module 2 Project)
 
-You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
+**PawPal+** is a Streamlit app that helps a busy pet owner plan a day of care for all of their pets. You enter your pets, their care tasks and how much time you have. PawPal+ builds a schedule, warns you about clashes, and explains its choices.
+
+## ✨ Features
+
+- **Multi-pet planning:** one owner, any number of pets. The scheduler gathers every pet's tasks through `Owner.get_all_tasks()` and plans them together.
+- **Sorting by time:** `Scheduler.sort_by_time()` lists tasks in clock order, with "any time" tasks last, using `sorted()` with a lambda key.
+- **Priority-first planning:** `Scheduler.sort_tasks()` orders tasks by priority, then preferred time, then shortest first. `Scheduler.fit_to_budget()` then keeps tasks until your available minutes run out.
+- **Filtering:** `Scheduler.filter_tasks(pet_name, completed)` shows one pet's tasks, open tasks, finished tasks, or any combination.
+- **Smart time slots:** `Scheduler.assign_times()` pins tasks with a preferred time exactly there, and fits flexible tasks into the open gaps around them.
+- **Conflict warnings:** `Scheduler.detect_conflicts()` flags any overlapping tasks, including exact same-time clashes. It says whether the clash is between two tasks of the same pet or of different pets, and also flags tasks that run past your day's end.
+- **Daily and weekly recurrence:** `Scheduler.mark_task_complete()` marks a task done and automatically creates the next one, due tomorrow (daily) or in a week (weekly), calculated with `timedelta`. "once" tasks don't repeat.
+- **Explained plans:** `DailyPlan.explain()` gives the reason for every scheduled task and every skipped one, such as "not enough time (45 min needed, 15 min left)".
+- **Friendly input, safe defaults:** times can be typed as `"HH:MM"`, and a bad priority or a zero-minute task is rejected with a clear error.
 
 ## Scenario
 
@@ -30,6 +42,14 @@ Your final app should:
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+```
+
+### Run
+
+```bash
+streamlit run app.py   # the web app
+python main.py         # command-line demo of the scheduler
+python -m pytest       # the test suite
 ```
 
 ### Suggested workflow
@@ -64,6 +84,104 @@ How a plan is built (`Scheduler.build_plan()`):
 5. **Detect conflicts** such as overlapping slots or tasks running past the end of the day, and report them as warnings.
 
 `main.py` is a command-line demo of this flow, and `tests/test_pawpal.py` holds the pytest tests.
+
+## 🏗️ Architecture
+
+The final class diagram (source: [`diagrams/uml_final.mmd`](diagrams/uml_final.mmd)). The original Phase 1 draft is kept in [`diagrams/uml.mmd`](diagrams/uml.mmd) for comparison.
+
+```mermaid
+classDiagram
+    %% Final design: matches pawpal_system.py as built.
+    %% Initial Phase 1 draft is kept in uml.mmd for comparison.
+
+    class Owner {
+        +str name
+        +int available_minutes
+        +time day_start
+        +time day_end
+        +dict preferences
+        +list~Pet~ pets
+        +add_pet(pet: Pet) None
+        +remove_pet(name: str) None
+        +get_all_tasks() list~Task~
+        +set_availability(minutes: int, start: time, end: time) None
+    }
+
+    class Pet {
+        +str name
+        +str species
+        +int age
+        +str notes
+        +list~Task~ tasks
+        -_find(task_id: int) Task
+        +add_task(task: Task) None
+        +remove_task(task_id: int) None
+        +edit_task(task_id: int, changes: dict) None
+        +complete_task(task_id: int) None
+        +get_tasks(include_completed: bool) list~Task~
+    }
+
+    class Task {
+        +str title
+        +str category
+        +int duration_minutes
+        +str priority
+        +time preferred_time
+        +str frequency
+        +bool completed
+        +str pet_name
+        +date due_date
+        +int id
+        +mark_complete() Optional~Task~
+        +priority_score() int
+        +is_due_today(day: date) bool
+        +to_dict() dict
+    }
+
+    class Scheduler {
+        +Owner owner
+        +collect_tasks(day: date) list~Task~
+        +sort_tasks(tasks: list~Task~) list~Task~
+        +sort_by_time(tasks: list~Task~) list~Task~
+        +filter_tasks(pet_name: str, completed: bool) list~Task~
+        +mark_task_complete(task_id: int) None
+        +fit_to_budget(tasks: list~Task~, minutes: int) tuple
+        +assign_times(tasks: list~Task~) list~ScheduledTask~
+        +detect_conflicts(items: list~ScheduledTask~) list~str~
+        +build_plan(day: date) DailyPlan
+    }
+
+    class ScheduledTask {
+        +Task task
+        +time start_time
+        +time end_time
+        +str reason
+    }
+
+    class DailyPlan {
+        +date date
+        +list~ScheduledTask~ scheduled
+        +list~tuple~ skipped
+        +int total_minutes
+        +list~str~ warnings
+        +summary() str
+        +explain() str
+        +to_rows() list~dict~
+    }
+
+    Owner "1" *-- "*" Pet : owns
+    Pet "1" *-- "*" Task : has
+    Task ..> Task : mark_complete() creates next occurrence
+    Scheduler --> Owner : reads all tasks via get_all_tasks()
+    Scheduler ..> Pet : mark_task_complete() calls complete_task()
+    Scheduler ..> DailyPlan : build_plan() creates
+    DailyPlan "1" *-- "*" ScheduledTask : scheduled
+    DailyPlan --> Task : skipped (with reason)
+    ScheduledTask --> "1" Task : wraps
+
+    note for Task "preferred_time also accepts an HH:MM string,\nconverted to time on creation"
+    note for Scheduler "Never reads a single pet directly:\nall tasks come from Owner.get_all_tasks()"
+```
 
 ## 🖥️ Sample Output
 
@@ -243,12 +361,55 @@ The new copy gets a fresh id. Because the next date counts from today, an overdu
 
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+### What you can do in the app
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+| Section | Actions |
+|---|---|
+| **Owner** | Set your name, how many minutes you have today, and when your day starts and ends. |
+| **Pets** | Add pets (name, species, age). Empty and duplicate names are rejected. |
+| **Tasks** | Add a task for any pet: title, duration, priority, how often it repeats, and an optional preferred time. Mark a task complete. Browse the task list sorted by time, filtered by pet and by status (Open / Done / All). |
+| **Today's Schedule** | Click **Generate schedule**. You get a summary line, any conflict warnings, the time-slotted plan as a table, any skipped tasks with the reason, and a "Why this plan?" explanation. |
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+### Example workflow
+
+1. Run `streamlit run app.py`. In **Owner**, set *Minutes available today* to 90 and keep the day as 07:00–21:00.
+2. In **Pets**, add **Mochi** (dog) and **Luna** (cat). Each appears in the pets table right away.
+3. In **Tasks**, add Mochi's *Breakfast* (10 min, high, preferred 07:30) and *Morning walk* (30 min, high, preferred 08:00). Then add Luna's *Thyroid pill* (5 min, high, preferred 08:00).
+4. The **Task list** shows all three in time order: 07:30 Breakfast, then the two 08:00 tasks. Set the **Pet** filter to *Luna* and only the Thyroid pill remains.
+5. Click **Generate schedule**. A green banner says *Planned 3 tasks — 45 of 90 minutes.* Above the table, a yellow warning appears: *Conflict at 08:00: Thyroid pill and Morning walk overlap — different pets (Luna & Mochi)*, with a tip to move one task or ignore it if two people can help.
+6. Back in **Tasks**, choose *Mochi — Breakfast* under **Mark a task complete** and click **Mark complete**. A banner shows *Done! Next 'Breakfast' is due* tomorrow. Set **Status** to *Done* to see the finished task. Breakfast no longer appears in today's schedule.
+
+### How conflicts are shown, and why
+
+Conflicts appear **before** the schedule table, as a **yellow warning rather than a red error**. Some overlaps are fine in real life; for example, two people might split the morning routine. Each warning names both tasks, both pets and the time, and gives the owner a next step. PawPal+ never moves a task you pinned to a time without asking.
+
+### Key Scheduler behaviors on display
+
+- **Sorting:** the task list is always in clock order (`sort_by_time`).
+- **Filtering:** by pet and by status (`filter_tasks`).
+- **Priority and time budget:** low-priority tasks are skipped first when time runs out, each with a reason (`fit_to_budget`).
+- **Conflict warnings:** same pet or different pets (`detect_conflicts`).
+- **Recurrence:** completing a daily task creates tomorrow's copy (`mark_task_complete`).
+
+### CLI output
+
+The same behaviors from `python main.py` (the full output, including the sorting and filtering sections, is under Sample Output above):
+
+```text
+Today's Schedule (2026-10-19) — 75 min planned
+  07:00–07:10  Clean litter box (Luna) [medium]
+  08:00–08:05  Thyroid pill (Luna) [high]
+  08:00–08:30  Morning walk (Mochi) [high]
+  08:15–08:20  Flea treatment (Mochi) [high]
+  18:30–18:55  Evening walk (Mochi) [medium]
+
+Why this plan:
+  - Clean litter box: medium priority; placed in next open slot
+  - Thyroid pill: high priority; at preferred time 08:00
+  - Morning walk: high priority; at preferred time 08:00
+  - Flea treatment: high priority; at preferred time 08:15
+  - Evening walk: medium priority; at preferred time 18:30
+  - SKIPPED Brushing (Mochi): not enough time (45 min needed, 15 min left)
+  ! Conflict at 08:00: Thyroid pill and Morning walk overlap — different pets (Luna & Mochi)
+  ! Conflict at 08:15: Morning walk and Flea treatment overlap — same pet (Mochi)
+```

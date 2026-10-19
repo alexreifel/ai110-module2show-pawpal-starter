@@ -1,0 +1,91 @@
+classDiagram
+    %% Final design: matches pawpal_system.py as built.
+    %% Initial Phase 1 draft is kept in uml.mmd for comparison.
+
+    class Owner {
+        +str name
+        +int available_minutes
+        +time day_start
+        +time day_end
+        +dict preferences
+        +list~Pet~ pets
+        +add_pet(pet: Pet) None
+        +remove_pet(name: str) None
+        +get_all_tasks() list~Task~
+        +set_availability(minutes: int, start: time, end: time) None
+    }
+
+    class Pet {
+        +str name
+        +str species
+        +int age
+        +str notes
+        +list~Task~ tasks
+        -_find(task_id: int) Task
+        +add_task(task: Task) None
+        +remove_task(task_id: int) None
+        +edit_task(task_id: int, changes: dict) None
+        +complete_task(task_id: int) None
+        +get_tasks(include_completed: bool) list~Task~
+    }
+
+    class Task {
+        +str title
+        +str category
+        +int duration_minutes
+        +str priority
+        +time preferred_time
+        +str frequency
+        +bool completed
+        +str pet_name
+        +date due_date
+        +int id
+        +mark_complete() Optional~Task~
+        +priority_score() int
+        +is_due_today(day: date) bool
+        +to_dict() dict
+    }
+
+    class Scheduler {
+        +Owner owner
+        +collect_tasks(day: date) list~Task~
+        +sort_tasks(tasks: list~Task~) list~Task~
+        +sort_by_time(tasks: list~Task~) list~Task~
+        +filter_tasks(pet_name: str, completed: bool) list~Task~
+        +mark_task_complete(task_id: int) None
+        +fit_to_budget(tasks: list~Task~, minutes: int) tuple
+        +assign_times(tasks: list~Task~) list~ScheduledTask~
+        +detect_conflicts(items: list~ScheduledTask~) list~str~
+        +build_plan(day: date) DailyPlan
+    }
+
+    class ScheduledTask {
+        +Task task
+        +time start_time
+        +time end_time
+        +str reason
+    }
+
+    class DailyPlan {
+        +date date
+        +list~ScheduledTask~ scheduled
+        +list~tuple~ skipped
+        +int total_minutes
+        +list~str~ warnings
+        +summary() str
+        +explain() str
+        +to_rows() list~dict~
+    }
+
+    Owner "1" *-- "*" Pet : owns
+    Pet "1" *-- "*" Task : has
+    Task ..> Task : mark_complete() creates next occurrence
+    Scheduler --> Owner : reads all tasks via get_all_tasks()
+    Scheduler ..> Pet : mark_task_complete() calls complete_task()
+    Scheduler ..> DailyPlan : build_plan() creates
+    DailyPlan "1" *-- "*" ScheduledTask : scheduled
+    DailyPlan --> Task : skipped (with reason)
+    ScheduledTask --> "1" Task : wraps
+
+    note for Task "preferred_time also accepts an HH:MM string,\nconverted to time on creation"
+    note for Scheduler "Never reads a single pet directly:\nall tasks come from Owner.get_all_tasks()"

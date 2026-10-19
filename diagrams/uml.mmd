@@ -21,9 +21,8 @@ classDiagram
         +str notes
         +list~Task~ tasks
         +add_task(task: Task) None
-        +remove_task(task_id: int) None
-        +edit_task(task_id: int, changes: dict) None
-        +complete_task(task_id: int) None
+        +remove_task(title: str) None
+        +edit_task(title: str, **changes) None
         +get_tasks(include_completed: bool) list~Task~
     }
 
@@ -36,8 +35,6 @@ classDiagram
         +str frequency
         +bool completed
         +str pet_name
-        +date due_date
-        +int id
         +mark_complete() Task | None
         +priority_score() int
         +is_due_today(day: date) bool
@@ -48,10 +45,7 @@ classDiagram
         +Owner owner
         +collect_tasks(day: date) list~Task~
         +sort_tasks(tasks: list~Task~) list~Task~
-        +sort_by_time(tasks: list~Task~) list~Task~
-        +filter_tasks(pet_name: str, completed: bool) list~Task~
-        +mark_task_complete(task_id: int) None
-        +fit_to_budget(tasks: list~Task~, minutes: int) tuple
+        +filter_tasks(tasks: list~Task~, minutes: int) tuple
         +assign_times(tasks: list~Task~) list~ScheduledTask~
         +detect_conflicts(items: list~ScheduledTask~) list~str~
         +build_plan(day: date) DailyPlan
